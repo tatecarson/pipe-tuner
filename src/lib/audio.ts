@@ -61,9 +61,10 @@ export async function startSequence(
       if (freqs.length > 0) {
         poly.triggerAttackRelease(freqs, "16n", time);
       }
-      if (currentStepCallback) {
+      const onStep = currentStepCallback;
+      if (onStep) {
         Tone.getDraw().schedule(() => {
-          currentStepCallback!(stepIndex);
+          onStep(stepIndex);
         }, time);
       }
     },

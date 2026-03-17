@@ -1,3 +1,5 @@
+import { TunePresetId } from "@/types";
+
 export const DEFAULT_ROOT_FREQUENCY = 440;
 export const DEFAULT_TEMPERATURE = 20;
 export const DEFAULT_A4 = 440;
@@ -46,3 +48,106 @@ export const PYTHAGOREAN_NOTE_NAMES = [
 
 export const DEFAULT_SEQUENCER_STEPS = 16;
 export const DEFAULT_BPM = 120;
+
+export const TUNE_PRESET_OPTIONS: { id: TunePresetId; label: string; description: string }[] = [
+  {
+    id: "ji_12",
+    label: "JI 12",
+    description: "Basic 12-tone just intonation",
+  },
+  {
+    id: "ji_12a",
+    label: "JI 12A",
+    description: "7-limit 12-tone scale",
+  },
+  {
+    id: "ji_12b",
+    label: "JI 12B",
+    description: "Alternate 7-limit 12-tone scale",
+  },
+  {
+    id: "ji_12c",
+    label: "JI 12C",
+    description: "Sauveur/Kurzweil natural b7",
+  },
+  {
+    id: "johnston",
+    label: "Johnston",
+    description: "Combined otonal-utonal scale",
+  },
+  {
+    id: "ji_19",
+    label: "JI 19",
+    description: "5-limit 19-tone scale",
+  },
+  {
+    id: "johnston_21",
+    label: "Johnston 21",
+    description: "21-note just enharmonic scale",
+  },
+  {
+    id: "mean19",
+    label: "Mean19",
+    description: "5/19-comma meantone scale",
+  },
+  {
+    id: "pyth_12",
+    label: "Pyth 12",
+    description: "12-tone Pythagorean scale",
+  },
+  {
+    id: "pyth_31",
+    label: "Pyth 31",
+    description: "31-tone Pythagorean scale",
+  },
+  {
+    id: "slendro",
+    label: "Slendro",
+    description: "Observed Javanese Slendro scale",
+  },
+  {
+    id: "xenakis_chrom",
+    label: "Xenakis Chrom",
+    description: "Byzantine liturgical mode",
+  },
+  {
+    id: "couperin",
+    label: "Couperin",
+    description: "Couperin modified meantone",
+  },
+  {
+    id: "partch_43",
+    label: "Partch 43",
+    description: "Harry Partch's 43-tone pure scale",
+  },
+  {
+    id: "ptolemy",
+    label: "Ptolemy",
+    description: "Intense Diatonic Syntonon",
+  },
+  {
+    id: "ptolemy_iast",
+    label: "Ptolemy Iast",
+    description: "Iastia or Lydia tuning",
+  },
+  {
+    id: "ptolemy_meta",
+    label: "Ptolemy Meta",
+    description: "Metabolika lyra tuning",
+  },
+  {
+    id: "zarlino2",
+    label: "Zarlino 16",
+    description: "16-note Zarlino choice system",
+  },
+  {
+    id: "young-lm_piano",
+    label: "Young Piano",
+    description: "LaMonte Young's Well-Tempered Piano",
+  },
+  {
+    id: "helmholtz_pure",
+    label: "Helmholtz Pure",
+    description: "Helmholtz's two-keyboard harmonium tuning",
+  },
+];

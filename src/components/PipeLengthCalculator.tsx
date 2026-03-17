@@ -2,10 +2,11 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { TuningSystem, UnitSystem } from "@/types";
-import { DEFAULT_TEMPERATURE } from "@/lib/constants";
+import { DEFAULT_TEMPERATURE, TUNE_PRESET_OPTIONS } from "@/lib/constants";
 import { equalTemperament, justIntonation, pythagorean } from "@/lib/tuning";
 import { pipeLengthMeters } from "@/lib/pipe";
 import { playFrequency } from "@/lib/audio";
+import { generateTunePreset } from "@/lib/tune";
 import { TuningControls } from "./TuningControls";
 import { NoteTable } from "./NoteTable";
 import { Sequencer } from "./Sequencer";
@@ -35,6 +36,13 @@ export function PipeLengthCalculator() {
       case "custom-tet":
         raw = equalTemperament(tuningSystem.rootFrequency, tuningSystem.rootNoteName, tuningSystem.divisions);
         break;
+      case "tunejs":
+        raw = generateTunePreset(
+          tuningSystem.rootFrequency,
+          tuningSystem.rootNoteName,
+          tuningSystem.preset,
+        );
+        break;
     }
     return raw.map((n) => ({
       ...n,
@@ -43,6 +51,9 @@ export function PipeLengthCalculator() {
   }, [tuningSystem, temperatureCelsius]);
 
   const showRatio = tuningSystem.kind === "just" || tuningSystem.kind === "pythagorean";
+  const tunePresetLabel = tuningSystem.kind === "tunejs"
+    ? TUNE_PRESET_OPTIONS.find((option) => option.id === tuningSystem.preset)?.label ?? tuningSystem.preset
+    : null;
 
   const handlePlay = useCallback(async (freq: number) => {
     await playFrequency(freq);
@@ -70,6 +81,7 @@ export function PipeLengthCalculator() {
           {tuningSystem.kind === "just" && "5-limit Just Intonation"}
           {tuningSystem.kind === "pythagorean" && "Pythagorean Tuning"}
           {tuningSystem.kind === "custom-tet" && `${tuningSystem.divisions}-TET`}
+          {tuningSystem.kind === "tunejs" && `Tune.js - ${tunePresetLabel}`}
         </span>
         <span className="text-xs font-mono text-zinc-500">
           {computedNotes.length} notes · root {tuningSystem.rootNoteName} ({tuningSystem.rootFrequency} Hz)

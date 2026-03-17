@@ -1,4 +1,25 @@
-export type TuningSystemKind = "12-tet" | "just" | "pythagorean" | "custom-tet";
+export type TuningSystemKind = "12-tet" | "just" | "pythagorean" | "custom-tet" | "tunejs";
+export type TunePresetId =
+  | "ji_12"
+  | "ji_12a"
+  | "ji_12b"
+  | "ji_12c"
+  | "johnston"
+  | "ji_19"
+  | "johnston_21"
+  | "mean19"
+  | "pyth_12"
+  | "pyth_31"
+  | "slendro"
+  | "xenakis_chrom"
+  | "couperin"
+  | "partch_43"
+  | "ptolemy"
+  | "ptolemy_iast"
+  | "ptolemy_meta"
+  | "zarlino2"
+  | "young-lm_piano"
+  | "helmholtz_pure";
 
 interface TuningSystemBase {
   kind: TuningSystemKind;
@@ -23,7 +44,12 @@ export interface CustomTET extends TuningSystemBase {
   divisions: number;
 }
 
-export type TuningSystem = TwelveTET | JustIntonation | Pythagorean | CustomTET;
+export interface TunePresetSystem extends TuningSystemBase {
+  kind: "tunejs";
+  preset: TunePresetId;
+}
+
+export type TuningSystem = TwelveTET | JustIntonation | Pythagorean | CustomTET | TunePresetSystem;
 
 export interface ComputedNote {
   index: number;

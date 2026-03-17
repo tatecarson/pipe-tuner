@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { TuningSystem, UnitSystem } from "@/types";
-import { DEFAULT_TEMPERATURE, TUNE_PRESET_OPTIONS } from "@/lib/constants";
+import { DEFAULT_PIPE_DIAMETER_MM, DEFAULT_TEMPERATURE, TUNE_PRESET_OPTIONS } from "@/lib/constants";
 import { equalTemperament, justIntonation, pythagorean } from "@/lib/tuning";
-import { pipeLengthMeters } from "@/lib/pipe";
+import { endCorrectionMeters, pipeLengthMeters } from "@/lib/pipe";
 import { playFrequency } from "@/lib/audio";
 import { generateTunePreset } from "@/lib/tune";
 import { TuningControls } from "./TuningControls";
@@ -18,6 +18,7 @@ export function PipeLengthCalculator() {
     rootNoteName: "C4",
   });
   const [temperatureCelsius, setTemperatureCelsius] = useState(DEFAULT_TEMPERATURE);
+  const [pipeDiameterMm, setPipeDiameterMm] = useState(DEFAULT_PIPE_DIAMETER_MM);
   const [unitSystem, setUnitSystem] = useState<UnitSystem>("metric");
   const [activeTab, setActiveTab] = useState<"table" | "sequencer">("table");
 
@@ -46,14 +47,15 @@ export function PipeLengthCalculator() {
     }
     return raw.map((n) => ({
       ...n,
-      pipeLengthMeters: pipeLengthMeters(n.frequency, temperatureCelsius),
+      pipeLengthMeters: pipeLengthMeters(n.frequency, temperatureCelsius, pipeDiameterMm),
     }));
-  }, [tuningSystem, temperatureCelsius]);
+  }, [tuningSystem, temperatureCelsius, pipeDiameterMm]);
 
   const showRatio = tuningSystem.kind === "just" || tuningSystem.kind === "pythagorean";
   const tunePresetLabel = tuningSystem.kind === "tunejs"
     ? TUNE_PRESET_OPTIONS.find((option) => option.id === tuningSystem.preset)?.label ?? tuningSystem.preset
     : null;
+  const totalEndCorrectionMm = endCorrectionMeters(pipeDiameterMm) * 1000;
 
   const handlePlay = useCallback(async (freq: number) => {
     await playFrequency(freq);
@@ -66,9 +68,11 @@ export function PipeLengthCalculator() {
         <TuningControls
           tuningSystem={tuningSystem}
           temperatureCelsius={temperatureCelsius}
+          pipeDiameterMm={pipeDiameterMm}
           unitSystem={unitSystem}
           onTuningChange={setTuningSystem}
           onTemperatureChange={setTemperatureCelsius}
+          onPipeDiameterChange={setPipeDiameterMm}
           onUnitChange={setUnitSystem}
         />
       </div>
@@ -85,6 +89,9 @@ export function PipeLengthCalculator() {
         </span>
         <span className="text-xs font-mono text-zinc-500">
           {computedNotes.length} notes · root {tuningSystem.rootNoteName} ({tuningSystem.rootFrequency} Hz)
+        </span>
+        <span className="text-xs font-mono text-zinc-500">
+          diameter {pipeDiameterMm} mm · end correction {totalEndCorrectionMm.toFixed(1)} mm
         </span>
       </div>
 

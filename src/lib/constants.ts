@@ -3,6 +3,7 @@ import { TunePresetId } from "@/types";
 export const DEFAULT_ROOT_FREQUENCY = 440;
 export const DEFAULT_TEMPERATURE = 20;
 export const DEFAULT_A4 = 440;
+export const DEFAULT_PIPE_DIAMETER_MM = 25;
 
 export const NOTE_NAMES = [
   "C", "C#", "D", "D#", "E", "F",

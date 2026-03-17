@@ -70,7 +70,7 @@ export function pythagorean(rootFreq: number, rootNoteName: string): ComputedNot
   // Generate 12 notes by stacking fifths
   for (let i = 0; i < 12; i++) {
     // ratio = 3^i / 2^i, then octave-reduce to [1, 2)
-    let num = Math.pow(3, i);
+    const num = Math.pow(3, i);
     let den = Math.pow(2, i);
     while (num / den >= 2) den *= 2;
     const ratio = num / den;

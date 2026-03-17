@@ -19,18 +19,19 @@ export function Sequencer({ notes }: SequencerProps) {
   );
   const gridRef = useRef(grid);
   gridRef.current = grid;
+  const noteSignature = notes
+    .map((note) => `${note.index}:${note.name}:${note.frequency.toFixed(5)}`)
+    .join("|");
 
-  // Reset grid when notes change (different tuning system / root)
+  // Reset the sequence state when the playable note set changes.
   useEffect(() => {
-    const wasPlaying = playing;
-    if (wasPlaying) {
-      stopSequence();
-      setPlaying(false);
-      setCurrentStep(-1);
-    }
+    stopSequence();
+    disposeSequence();
+    setPlaying(false);
+    setCurrentStep(-1);
     setGrid(Array.from({ length: notes.length }, () => Array(steps).fill(false)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [notes.length, steps]);
+  }, [noteSignature, steps]);
 
   const toggleCell = useCallback((noteIndex: number, step: number) => {
     setGrid((prev) => {
@@ -40,22 +41,22 @@ export function Sequencer({ notes }: SequencerProps) {
     });
   }, []);
 
-  const handlePlay = useCallback(async () => {
+  const handlePlay = useCallback(() => {
     if (playing) {
       stopSequence();
+      disposeSequence();
       setPlaying(false);
       setCurrentStep(-1);
       return;
     }
+    setCurrentStep(-1);
     setPlaying(true);
-    await startSequence(gridRef.current, notes, steps, bpm, (step) => {
-      setCurrentStep(step);
-    });
-  }, [playing, notes, steps, bpm]);
+  }, [playing]);
 
   const handleClear = useCallback(() => {
     if (playing) {
       stopSequence();
+      disposeSequence();
       setPlaying(false);
       setCurrentStep(-1);
     }
@@ -69,15 +70,25 @@ export function Sequencer({ notes }: SequencerProps) {
     };
   }, []);
 
-  // Re-start sequence when grid changes during playback
+  // Keep the active Tone sequence aligned with the current grid and tempo.
   useEffect(() => {
-    if (playing) {
-      startSequence(grid, notes, steps, bpm, (step) => {
-        setCurrentStep(step);
-      });
+    if (!playing) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [grid]);
+
+    let cancelled = false;
+
+    void startSequence(gridRef.current, notes, steps, bpm, (step) => {
+      if (!cancelled) {
+        setCurrentStep(step);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      stopSequence();
+    };
+  }, [playing, grid, notes, steps, bpm, noteSignature]);
 
   return (
     <div className="space-y-4">

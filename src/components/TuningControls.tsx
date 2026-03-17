@@ -1,7 +1,7 @@
 "use client";
 
 import { TuningSystem, TuningSystemKind, UnitSystem } from "@/types";
-import { ROOT_NOTE_OPTIONS } from "@/lib/constants";
+import { ROOT_NOTE_OPTIONS, TUNE_PRESET_OPTIONS } from "@/lib/constants";
 import { UnitToggle } from "./UnitToggle";
 
 interface TuningControlsProps {
@@ -39,6 +39,9 @@ export function TuningControls({
       case "custom-tet":
         onTuningChange({ ...base, kind: "custom-tet", divisions: 19 });
         break;
+      case "tunejs":
+        onTuningChange({ ...base, kind: "tunejs", preset: "mean19" });
+        break;
     }
   };
 
@@ -60,6 +63,12 @@ export function TuningControls({
     }
   };
 
+  const handlePresetChange = (preset: string) => {
+    if (tuningSystem.kind === "tunejs") {
+      onTuningChange({ ...tuningSystem, preset: preset as typeof tuningSystem.preset });
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {/* Tuning System */}
@@ -76,6 +85,7 @@ export function TuningControls({
           <option value="just">Just Intonation</option>
           <option value="pythagorean">Pythagorean</option>
           <option value="custom-tet">Custom N-TET</option>
+          <option value="tunejs">Tune.js Presets</option>
         </select>
       </div>
 
@@ -112,6 +122,23 @@ export function TuningControls({
             className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
           />
         </div>
+      ) : tuningSystem.kind === "tunejs" ? (
+        <div className="space-y-1.5">
+          <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
+            Tune.js Preset
+          </label>
+          <select
+            value={tuningSystem.preset}
+            onChange={(e) => handlePresetChange(e.target.value)}
+            className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
+          >
+            {TUNE_PRESET_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label} - {opt.description}
+              </option>
+            ))}
+          </select>
+        </div>
       ) : (
         <div className="space-y-1.5">
           <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
@@ -133,7 +160,7 @@ export function TuningControls({
 
       {/* Temperature (for custom-tet, show in 4th slot) / Unit Toggle */}
       <div className="space-y-1.5">
-        {tuningSystem.kind === "custom-tet" ? (
+        {tuningSystem.kind === "custom-tet" || tuningSystem.kind === "tunejs" ? (
           <>
             <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
               Temperature (°C)

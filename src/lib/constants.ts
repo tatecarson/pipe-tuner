@@ -10,20 +10,24 @@ export const NOTE_NAMES = [
   "F#", "G", "G#", "A", "A#", "B",
 ] as const;
 
-export const ROOT_NOTE_OPTIONS = [
-  { name: "C4", frequency: 261.63 },
-  { name: "C#4", frequency: 277.18 },
-  { name: "D4", frequency: 293.66 },
-  { name: "D#4", frequency: 311.13 },
-  { name: "E4", frequency: 329.63 },
-  { name: "F4", frequency: 349.23 },
-  { name: "F#4", frequency: 369.99 },
-  { name: "G4", frequency: 392.0 },
-  { name: "G#4", frequency: 415.3 },
-  { name: "A4", frequency: 440.0 },
-  { name: "A#4", frequency: 466.16 },
-  { name: "B4", frequency: 493.88 },
-] as const;
+const ROOT_NOTE_START_OCTAVE = 1;
+const ROOT_NOTE_END_OCTAVE = 5;
+const A4_INDEX = NOTE_NAMES.indexOf("A");
+
+export const ROOT_NOTE_OPTIONS = Array.from(
+  { length: (ROOT_NOTE_END_OCTAVE - ROOT_NOTE_START_OCTAVE + 1) * NOTE_NAMES.length },
+  (_, index) => {
+    const octave = ROOT_NOTE_START_OCTAVE + Math.floor(index / NOTE_NAMES.length);
+    const noteIndex = index % NOTE_NAMES.length;
+    const semitonesFromA4 = (octave - 4) * 12 + (noteIndex - A4_INDEX);
+    const frequency = 440 * Math.pow(2, semitonesFromA4 / 12);
+
+    return {
+      name: `${NOTE_NAMES[noteIndex]}${octave}`,
+      frequency: Math.round(frequency * 100) / 100,
+    };
+  }
+);
 
 // 5-limit just intonation ratios: [name, numerator, denominator]
 export const JUST_RATIOS_5LIMIT: [string, number, number][] = [

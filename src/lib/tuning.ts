@@ -1,15 +1,28 @@
 import { ComputedNote } from "@/types";
 import { NOTE_NAMES, JUST_RATIOS_5LIMIT } from "./constants";
 
-function noteNameForSemitone(rootNoteIndex: number, semitone: number, octaveOffset: number): string {
-  const noteIndex = (rootNoteIndex + semitone) % 12;
-  const octave = 4 + octaveOffset + Math.floor((rootNoteIndex + semitone) / 12);
-  return `${NOTE_NAMES[noteIndex]}${octave}`;
+function parseRootNote(rootNoteName: string): { noteIndex: number; octave: number } {
+  const match = rootNoteName.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) {
+    return { noteIndex: 0, octave: 4 };
+  }
+
+  return {
+    noteIndex: NOTE_NAMES.indexOf(match[1] as (typeof NOTE_NAMES)[number]),
+    octave: Number(match[2]),
+  };
 }
 
-function getRootNoteIndex(rootNoteName: string): number {
-  const notePart = rootNoteName.replace(/\d+$/, "");
-  return NOTE_NAMES.indexOf(notePart as (typeof NOTE_NAMES)[number]);
+function noteNameForSemitone(
+  rootNoteIndex: number,
+  rootOctave: number,
+  semitone: number,
+  octaveOffset: number
+): string {
+  const totalSemitones = rootNoteIndex + semitone;
+  const normalizedNoteIndex = ((totalSemitones % 12) + 12) % 12;
+  const octave = rootOctave + octaveOffset + Math.floor(totalSemitones / 12);
+  return `${NOTE_NAMES[normalizedNoteIndex]}${octave}`;
 }
 
 export function equalTemperament(
@@ -20,14 +33,14 @@ export function equalTemperament(
 ): ComputedNote[] {
   const notes: ComputedNote[] = [];
   const totalSteps = divisions * octaves + 1;
-  const rootIndex = divisions === 12 ? getRootNoteIndex(rootNoteName) : -1;
+  const { noteIndex: rootIndex, octave: rootOctave } = parseRootNote(rootNoteName);
 
   for (let i = 0; i < totalSteps; i++) {
     const freq = rootFreq * Math.pow(2, i / divisions);
     const cents = (1200 / divisions) * i;
     const name =
       divisions === 12
-        ? noteNameForSemitone(rootIndex, i, 0)
+        ? noteNameForSemitone(rootIndex, rootOctave, i, 0)
         : `${i}/${divisions}`;
 
     notes.push({
@@ -43,14 +56,14 @@ export function equalTemperament(
 }
 
 export function justIntonation(rootFreq: number, rootNoteName: string): ComputedNote[] {
-  const rootIndex = getRootNoteIndex(rootNoteName);
+  const { noteIndex: rootIndex, octave: rootOctave } = parseRootNote(rootNoteName);
 
   return JUST_RATIOS_5LIMIT.map(([intervalName, num, den], i) => {
     const ratio = num / den;
     const freq = rootFreq * ratio;
     const cents = 1200 * Math.log2(ratio);
     const noteName = i === 0 || i === 12
-      ? noteNameForSemitone(rootIndex, i === 12 ? 12 : 0, 0)
+      ? noteNameForSemitone(rootIndex, rootOctave, i === 12 ? 12 : 0, 0)
       : intervalName;
 
     return {
@@ -87,11 +100,11 @@ export function pythagorean(rootFreq: number, rootNoteName: string): ComputedNot
   // Sort by frequency
   rawNotes.sort((a, b) => a.freq - b.freq);
 
-  const rootIndex = getRootNoteIndex(rootNoteName);
+  const { noteIndex: rootIndex, octave: rootOctave } = parseRootNote(rootNoteName);
 
   const notes: ComputedNote[] = rawNotes.map((n, idx) => ({
     index: idx,
-    name: noteNameForSemitone(rootIndex, n.semitoneApprox, 0),
+    name: noteNameForSemitone(rootIndex, rootOctave, n.semitoneApprox, 0),
     frequency: n.freq,
     ratio: `3^${n.numPow}/2^${n.denPow}`,
     pipeLengthMeters: 0,
@@ -101,7 +114,7 @@ export function pythagorean(rootFreq: number, rootNoteName: string): ComputedNot
   // Add octave
   notes.push({
     index: 12,
-    name: noteNameForSemitone(rootIndex, 12, 0),
+    name: noteNameForSemitone(rootIndex, rootOctave, 12, 0),
     frequency: rootFreq * 2,
     ratio: "2:1",
     pipeLengthMeters: 0,

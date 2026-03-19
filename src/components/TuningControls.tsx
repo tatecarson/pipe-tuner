@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { TuningSystem, TuningSystemKind, UnitSystem } from "@/types";
 import { ROOT_NOTE_OPTIONS, TUNE_PRESET_OPTIONS } from "@/lib/constants";
 import { inchesToMm, mmToInches } from "@/lib/pipe";
@@ -26,6 +27,14 @@ export function TuningControls({
   onPipeDiameterChange,
   onUnitChange,
 }: TuningControlsProps) {
+  const [pipeDiameterInput, setPipeDiameterInput] = useState(() =>
+    formatPipeDiameterValue(pipeDiameterMm, unitSystem)
+  );
+
+  useEffect(() => {
+    setPipeDiameterInput(formatPipeDiameterValue(pipeDiameterMm, unitSystem));
+  }, [pipeDiameterMm, unitSystem]);
+
   const handleKindChange = (kind: TuningSystemKind) => {
     const base = {
       rootFrequency: tuningSystem.rootFrequency,
@@ -75,15 +84,14 @@ export function TuningControls({
   };
 
   const handlePipeDiameterChange = (val: string) => {
+    setPipeDiameterInput(val);
+
     const diameter = parseFloat(val);
     if (!isNaN(diameter) && diameter >= 0) {
       onPipeDiameterChange(unitSystem === "imperial" ? inchesToMm(diameter) : diameter);
     }
   };
 
-  const pipeDiameterDisplayValue = unitSystem === "imperial"
-    ? mmToInches(pipeDiameterMm)
-    : pipeDiameterMm;
   const pipeDiameterLabel = unitSystem === "imperial" ? "Pipe Diameter (in)" : "Pipe Diameter (mm)";
   const pipeDiameterStep = unitSystem === "imperial" ? 0.01 : 0.1;
 
@@ -221,7 +229,7 @@ export function TuningControls({
             type="number"
             min={0}
             step={pipeDiameterStep}
-            value={pipeDiameterDisplayValue}
+            value={pipeDiameterInput}
             onChange={(e) => handlePipeDiameterChange(e.target.value)}
             className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
           />
@@ -238,4 +246,11 @@ export function TuningControls({
       </div>
     </div>
   );
+}
+
+function formatPipeDiameterValue(pipeDiameterMm: number, unitSystem: UnitSystem): string {
+  const value = unitSystem === "imperial" ? mmToInches(pipeDiameterMm) : pipeDiameterMm;
+  if (!Number.isFinite(value)) return "";
+
+  return Number(value.toFixed(unitSystem === "imperial" ? 4 : 3)).toString();
 }

@@ -3,8 +3,24 @@ import { ComputedNote } from "@/types";
 
 let synth: Tone.Synth | null = null;
 let polySynth: Tone.PolySynth | null = null;
+let outputGain: Tone.Gain | null = null;
+let limiter: Tone.Limiter | null = null;
 let sequenceRef: Tone.Sequence | null = null;
 let currentStepCallback: ((step: number) => void) | null = null;
+
+function ensureOutputChain(): Tone.Gain {
+  if (!outputGain) {
+    outputGain = new Tone.Gain(0.7);
+  }
+  if (!limiter) {
+    limiter = new Tone.Limiter(-3).toDestination();
+  }
+
+  outputGain.disconnect();
+  outputGain.connect(limiter);
+
+  return outputGain;
+}
 
 export async function ensureAudioReady(): Promise<void> {
   if (Tone.getContext().state !== "running") {
@@ -14,7 +30,8 @@ export async function ensureAudioReady(): Promise<void> {
     synth = new Tone.Synth({
       oscillator: { type: "sine" },
       envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.5 },
-    }).toDestination();
+      volume: -10,
+    }).connect(ensureOutputChain());
   }
 }
 
@@ -28,7 +45,8 @@ function getPolySynth(): Tone.PolySynth {
     polySynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "sine" },
       envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.3 },
-    }).toDestination();
+      volume: -14,
+    }).connect(ensureOutputChain());
     polySynth.maxPolyphony = 16;
   }
   return polySynth;
@@ -59,7 +77,8 @@ export async function startSequence(
         }
       }
       if (freqs.length > 0) {
-        poly.triggerAttackRelease(freqs, "16n", time);
+        const velocity = Math.min(0.9, 1 / Math.sqrt(freqs.length));
+        poly.triggerAttackRelease(freqs, "16n", time, velocity);
       }
       const onStep = currentStepCallback;
       if (onStep) {
@@ -78,7 +97,7 @@ export async function startSequence(
 
 export function stopSequence(): void {
   Tone.getTransport().stop();
-  sequenceRef?.stop();
+  polySynth?.releaseAll();
   currentStepCallback = null;
 }
 

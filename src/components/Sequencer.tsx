@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { ComputedNote } from "@/types";
 import { startSequence, stopSequence, disposeSequence } from "@/lib/audio";
 import { DEFAULT_SEQUENCER_STEPS, DEFAULT_BPM } from "@/lib/constants";
@@ -9,37 +9,80 @@ interface SequencerProps {
   notes: ComputedNote[];
 }
 
+interface EuclideanTrack {
+  position: number;
+  pulses: number;
+  rotation?: number;
+}
+
+interface EuclideanPreset {
+  id: string;
+  name: string;
+  description: string;
+  tracks: EuclideanTrack[];
+}
+
+interface SequenceTrack {
+  anchorCents: number;
+  pattern: boolean[];
+}
+
+const EUCLIDEAN_PRESETS: EuclideanPreset[] = [
+  {
+    id: "foundry",
+    name: "Foundry Pulse",
+    description: "Root drone with a staggered fifth and octave accents.",
+    tracks: [
+      { position: 0, pulses: 5, rotation: 0 },
+      { position: 7 / 12, pulses: 3, rotation: 2 },
+      { position: 1, pulses: 2, rotation: 8 },
+    ],
+  },
+  {
+    id: "bronze",
+    name: "Bronze Clave",
+    description: "Interlocking lower partials with a clipped top accent.",
+    tracks: [
+      { position: 0, pulses: 3, rotation: 0 },
+      { position: 4 / 12, pulses: 5, rotation: 1 },
+      { position: 7 / 12, pulses: 4, rotation: 5 },
+      { position: 10 / 12, pulses: 2, rotation: 11 },
+    ],
+  },
+  {
+    id: "spiral",
+    name: "Spiral Steps",
+    description: "Ascending Euclidean hits that climb into the octave.",
+    tracks: [
+      { position: 0, pulses: 2, rotation: 0 },
+      { position: 2 / 12, pulses: 3, rotation: 2 },
+      { position: 5 / 12, pulses: 4, rotation: 4 },
+      { position: 7 / 12, pulses: 5, rotation: 6 },
+      { position: 1, pulses: 3, rotation: 10 },
+    ],
+  },
+];
+
 export function Sequencer({ notes }: SequencerProps) {
   const [steps] = useState(DEFAULT_SEQUENCER_STEPS);
   const [bpm, setBpm] = useState(DEFAULT_BPM);
   const [playing, setPlaying] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(-1);
-  const [grid, setGrid] = useState<boolean[][]>(() =>
-    Array.from({ length: notes.length }, () => Array(DEFAULT_SEQUENCER_STEPS).fill(false))
-  );
-  const gridRef = useRef(grid);
-  gridRef.current = grid;
+  const [selectedPresetId, setSelectedPresetId] = useState(EUCLIDEAN_PRESETS[0]?.id ?? "");
+  const [tracks, setTracks] = useState<SequenceTrack[]>([]);
   const noteSignature = notes
     .map((note) => `${note.index}:${note.name}:${note.frequency.toFixed(5)}`)
     .join("|");
 
-  // Reset the sequence state when the playable note set changes.
-  useEffect(() => {
-    stopSequence();
-    disposeSequence();
-    setPlaying(false);
-    setCurrentStep(-1);
-    setGrid(Array.from({ length: notes.length }, () => Array(steps).fill(false)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noteSignature, steps]);
+  const visibleGrid = useMemo(() => buildVisibleGrid(notes, steps, tracks), [notes, steps, tracks]);
 
   const toggleCell = useCallback((noteIndex: number, step: number) => {
-    setGrid((prev) => {
-      const next = prev.map((row) => [...row]);
-      next[noteIndex][step] = !next[noteIndex][step];
-      return next;
-    });
-  }, []);
+    const next = visibleGrid.map((row) => [...row]);
+    if (!next[noteIndex]) return;
+
+    next[noteIndex][step] = !next[noteIndex][step];
+    setTracks(tracksFromGrid(next, notes));
+  }, [notes, visibleGrid]);
 
   const handlePlay = useCallback(() => {
     if (playing) {
@@ -49,28 +92,28 @@ export function Sequencer({ notes }: SequencerProps) {
       setCurrentStep(-1);
       return;
     }
+
     setCurrentStep(-1);
     setPlaying(true);
   }, [playing]);
 
   const handleClear = useCallback(() => {
-    if (playing) {
-      stopSequence();
-      disposeSequence();
-      setPlaying(false);
-      setCurrentStep(-1);
-    }
-    setGrid(Array.from({ length: notes.length }, () => Array(steps).fill(false)));
-  }, [playing, notes.length, steps]);
+    setTracks([]);
+  }, []);
 
-  // Cleanup on unmount
+  const handleLoadPreset = useCallback(() => {
+    const preset = EUCLIDEAN_PRESETS.find((candidate) => candidate.id === selectedPresetId);
+    if (!preset) return;
+
+    setTracks(buildPresetTracks(notes, steps, preset));
+  }, [notes, selectedPresetId, steps]);
+
   useEffect(() => {
     return () => {
       disposeSequence();
     };
   }, []);
 
-  // Keep the active Tone sequence aligned with the current grid and tempo.
   useEffect(() => {
     if (!playing) {
       return;
@@ -78,7 +121,7 @@ export function Sequencer({ notes }: SequencerProps) {
 
     let cancelled = false;
 
-    void startSequence(gridRef.current, notes, steps, bpm, (step) => {
+    void startSequence(visibleGrid, notes, steps, bpm, (step) => {
       if (!cancelled) {
         setCurrentStep(step);
       }
@@ -88,11 +131,10 @@ export function Sequencer({ notes }: SequencerProps) {
       cancelled = true;
       stopSequence();
     };
-  }, [playing, grid, notes, steps, bpm, noteSignature]);
+  }, [playing, visibleGrid, notes, steps, bpm, noteSignature]);
 
   return (
     <div className="space-y-4">
-      {/* Transport controls */}
       <div className="flex items-center gap-4 flex-wrap">
         <button
           onClick={handlePlay}
@@ -135,19 +177,44 @@ export function Sequencer({ notes }: SequencerProps) {
             min={40}
             max={240}
             value={bpm}
-            onChange={(e) => setBpm(parseInt(e.target.value))}
+            onChange={(e) => setBpm(parseInt(e.target.value, 10))}
             className="w-24 accent-amber-600"
           />
           <span className="font-mono text-sm text-zinc-300 tabular-nums w-8">
             {bpm}
           </span>
         </div>
+
+        <div className="flex items-center gap-2 min-w-0">
+          <label className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
+            Euclidean Preset
+          </label>
+          <select
+            value={selectedPresetId}
+            onChange={(e) => setSelectedPresetId(e.target.value)}
+            className="min-w-[13rem] bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
+          >
+            {EUCLIDEAN_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleLoadPreset}
+            className="px-4 py-2 rounded-md font-mono text-sm tracking-wide bg-zinc-800 text-zinc-300 border border-zinc-700 hover:text-zinc-100 hover:border-zinc-600 transition-all"
+          >
+            LOAD
+          </button>
+        </div>
       </div>
 
-      {/* Sequencer grid */}
+      <div className="text-xs font-mono text-zinc-500">
+        {EUCLIDEAN_PRESETS.find((preset) => preset.id === selectedPresetId)?.description}
+      </div>
+
       <div className="overflow-x-auto rounded-lg border border-zinc-800">
         <div className="min-w-fit">
-          {/* Step numbers */}
           <div className="flex">
             <div className="w-20 shrink-0" />
             {Array.from({ length: steps }, (_, i) => (
@@ -162,7 +229,6 @@ export function Sequencer({ notes }: SequencerProps) {
             ))}
           </div>
 
-          {/* Note rows (reversed so highest pitch is at top) */}
           {[...notes].reverse().map((note, reversedIdx) => {
             const noteIndex = notes.length - 1 - reversedIdx;
             return (
@@ -171,8 +237,9 @@ export function Sequencer({ notes }: SequencerProps) {
                   {note.name}
                 </div>
                 {Array.from({ length: steps }, (_, step) => {
-                  const active = grid[noteIndex]?.[step] ?? false;
+                  const active = visibleGrid[noteIndex]?.[step] ?? false;
                   const isCurrent = currentStep === step;
+
                   return (
                     <button
                       key={step}
@@ -199,4 +266,87 @@ export function Sequencer({ notes }: SequencerProps) {
       </div>
     </div>
   );
+}
+
+function buildPresetTracks(notes: ComputedNote[], steps: number, preset: EuclideanPreset): SequenceTrack[] {
+  const maxCents = getMaxCents(notes);
+
+  return preset.tracks.map((track) => ({
+    anchorCents: track.position * maxCents,
+    pattern: createEuclideanPattern(steps, Math.min(track.pulses, steps), track.rotation ?? 0),
+  }));
+}
+
+function buildVisibleGrid(notes: ComputedNote[], steps: number, tracks: SequenceTrack[]): boolean[][] {
+  const grid = Array.from({ length: notes.length }, () => Array(steps).fill(false));
+
+  for (const track of tracks) {
+    const noteIndex = findClosestNoteIndex(notes, track.anchorCents);
+    if (noteIndex < 0) continue;
+
+    for (let step = 0; step < steps; step += 1) {
+      grid[noteIndex][step] = grid[noteIndex][step] || !!track.pattern[step];
+    }
+  }
+
+  return grid;
+}
+
+function tracksFromGrid(grid: boolean[][], notes: ComputedNote[]): SequenceTrack[] {
+  return grid.flatMap((row, noteIndex) => {
+    if (!row.some(Boolean)) {
+      return [];
+    }
+
+    return [{
+      anchorCents: notes[noteIndex]?.centsFromRoot ?? 0,
+      pattern: [...row],
+    }];
+  });
+}
+
+function findClosestNoteIndex(notes: ComputedNote[], anchorCents: number): number {
+  if (notes.length === 0) {
+    return -1;
+  }
+
+  let closestIndex = 0;
+  let closestDistance = Math.abs(notes[0].centsFromRoot - anchorCents);
+
+  for (let index = 1; index < notes.length; index += 1) {
+    const distance = Math.abs(notes[index].centsFromRoot - anchorCents);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestIndex = index;
+    }
+  }
+
+  return closestIndex;
+}
+
+function getMaxCents(notes: ComputedNote[]): number {
+  if (notes.length === 0) {
+    return 1200;
+  }
+
+  return Math.max(...notes.map((note) => note.centsFromRoot), 1200);
+}
+
+function createEuclideanPattern(steps: number, pulses: number, rotation: number): boolean[] {
+  if (steps <= 0 || pulses <= 0) {
+    return Array(Math.max(steps, 0)).fill(false);
+  }
+
+  const pattern = Array.from({ length: steps }, (_, step) => ((step * pulses) % steps) < pulses);
+
+  return rotatePattern(pattern, rotation);
+}
+
+function rotatePattern(pattern: boolean[], rotation: number): boolean[] {
+  if (pattern.length === 0) return pattern;
+
+  const offset = ((rotation % pattern.length) + pattern.length) % pattern.length;
+  if (offset === 0) return pattern;
+
+  return pattern.map((_, index) => pattern[(index - offset + pattern.length) % pattern.length]);
 }

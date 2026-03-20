@@ -5,12 +5,13 @@ import { NoteRow } from "./NoteRow";
 
 interface NoteTableProps {
   notes: ComputedNote[];
+  lengthLabel: string;
   unitSystem: UnitSystem;
   showRatio: boolean;
   onPlay: (freq: number) => void;
 }
 
-export function NoteTable({ notes, unitSystem, showRatio, onPlay }: NoteTableProps) {
+export function NoteTable({ notes, lengthLabel, unitSystem, showRatio, onPlay }: NoteTableProps) {
   const maxPipeLength = notes.length > 0 ? Math.max(...notes.map((n) => n.pipeLengthMeters)) : 0;
 
   return (
@@ -36,7 +37,7 @@ export function NoteTable({ notes, unitSystem, showRatio, onPlay }: NoteTablePro
               Cents
             </th>
             <th className="py-2.5 px-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono font-normal text-right">
-              Pipe Length
+              {lengthLabel}
             </th>
             <th className="py-2.5 px-3 text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono font-normal hidden sm:table-cell w-[140px]">
               Relative

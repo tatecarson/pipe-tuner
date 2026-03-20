@@ -61,6 +61,7 @@ export interface ComputedNote {
 }
 
 export type UnitSystem = "metric" | "imperial";
+export type AcousticMode = "pipe" | "chime";
 
 export interface SequencerState {
   steps: number;

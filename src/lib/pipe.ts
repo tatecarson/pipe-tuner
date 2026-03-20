@@ -19,6 +19,19 @@ export function pipeLengthMeters(
   return Math.max(correctedLength, 0);
 }
 
+export function chimeLengthMeters(
+  frequency: number,
+  referenceFrequency: number,
+  referenceLengthMeters: number,
+): number {
+  if (frequency <= 0 || referenceFrequency <= 0 || referenceLengthMeters <= 0) {
+    return 0;
+  }
+
+  // For a fixed tube stock, struck chime pitch scales approximately with 1 / L^2.
+  return referenceLengthMeters * Math.sqrt(referenceFrequency / frequency);
+}
+
 export function metersToCm(m: number): number {
   return m * 100;
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TuningSystem, TuningSystemKind, UnitSystem } from "@/types";
+import { AcousticMode, TuningSystem, TuningSystemKind, UnitSystem } from "@/types";
 import { ROOT_NOTE_OPTIONS, TUNE_PRESET_OPTIONS } from "@/lib/constants";
 import { inchesToMm, mmToInches } from "@/lib/pipe";
 import { UnitToggle } from "./UnitToggle";
@@ -9,31 +9,54 @@ import { UnitToggle } from "./UnitToggle";
 interface TuningControlsProps {
   tuningSystem: TuningSystem;
   temperatureCelsius: number;
+  acousticMode: AcousticMode;
   pipeDiameterMm: number;
+  chimeReferenceLengthMm: number;
+  noteSustain: number;
+  noteLengthFactor: number;
   unitSystem: UnitSystem;
   onTuningChange: (system: TuningSystem) => void;
   onTemperatureChange: (temp: number) => void;
+  onAcousticModeChange: (mode: AcousticMode) => void;
   onPipeDiameterChange: (diameterMm: number) => void;
+  onChimeReferenceLengthChange: (lengthMm: number) => void;
+  onNoteSustainChange: (sustain: number) => void;
+  onNoteLengthFactorChange: (lengthFactor: number) => void;
   onUnitChange: (unit: UnitSystem) => void;
 }
 
 export function TuningControls({
   tuningSystem,
   temperatureCelsius,
+  acousticMode,
   pipeDiameterMm,
+  chimeReferenceLengthMm,
+  noteSustain,
+  noteLengthFactor,
   unitSystem,
   onTuningChange,
   onTemperatureChange,
+  onAcousticModeChange,
   onPipeDiameterChange,
+  onChimeReferenceLengthChange,
+  onNoteSustainChange,
+  onNoteLengthFactorChange,
   onUnitChange,
 }: TuningControlsProps) {
   const [pipeDiameterInput, setPipeDiameterInput] = useState(() =>
     formatPipeDiameterValue(pipeDiameterMm, unitSystem)
   );
+  const [chimeReferenceInput, setChimeReferenceInput] = useState(() =>
+    formatLinearValue(chimeReferenceLengthMm, unitSystem, 3)
+  );
 
   useEffect(() => {
     setPipeDiameterInput(formatPipeDiameterValue(pipeDiameterMm, unitSystem));
   }, [pipeDiameterMm, unitSystem]);
+
+  useEffect(() => {
+    setChimeReferenceInput(formatLinearValue(chimeReferenceLengthMm, unitSystem, 3));
+  }, [chimeReferenceLengthMm, unitSystem]);
 
   const handleKindChange = (kind: TuningSystemKind) => {
     const base = {
@@ -92,8 +115,22 @@ export function TuningControls({
     }
   };
 
-  const pipeDiameterLabel = unitSystem === "imperial" ? "Pipe Diameter (in)" : "Pipe Diameter (mm)";
+  const handleChimeReferenceChange = (val: string) => {
+    setChimeReferenceInput(val);
+
+    const length = parseFloat(val);
+    if (!isNaN(length) && length > 0) {
+      onChimeReferenceLengthChange(unitSystem === "imperial" ? inchesToMm(length) : length);
+    }
+  };
+
+  const primaryLengthLabel = acousticMode === "pipe"
+    ? unitSystem === "imperial" ? "Pipe Diameter (in)" : "Pipe Diameter (mm)"
+    : unitSystem === "imperial" ? "Root Chime Length (in)" : "Root Chime Length (mm)";
   const pipeDiameterStep = unitSystem === "imperial" ? 0.01 : 0.1;
+  const acousticDescription = acousticMode === "pipe"
+    ? "Open pipe fundamental with end correction applied to both open ends."
+    : "Struck chime mode scales from the selected root note using a reference chime length.";
 
   return (
     <div className="space-y-4">
@@ -220,19 +257,84 @@ export function TuningControls({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4 pt-1">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] gap-4 pt-1">
         <div className="space-y-1.5">
           <label className="block text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
-            {pipeDiameterLabel}
+            {primaryLengthLabel}
           </label>
-          <input
-            type="number"
-            min={0}
-            step={pipeDiameterStep}
-            value={pipeDiameterInput}
-            onChange={(e) => handlePipeDiameterChange(e.target.value)}
-            className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
-          />
+          {acousticMode === "pipe" ? (
+            <input
+              type="number"
+              min={0}
+              step={pipeDiameterStep}
+              value={pipeDiameterInput}
+              onChange={(e) => handlePipeDiameterChange(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
+            />
+          ) : (
+            <input
+              type="number"
+              min={0}
+              step={pipeDiameterStep}
+              value={chimeReferenceInput}
+              onChange={(e) => handleChimeReferenceChange(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
+            />
+          )}
+        </div>
+
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
+            Acoustic Mode
+          </div>
+          <select
+            value={acousticMode}
+            onChange={(e) => onAcousticModeChange(e.target.value as AcousticMode)}
+            className="mt-2 w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 focus:ring-1 focus:ring-amber-600/30 transition-colors"
+          >
+            <option value="pipe">Open Pipe</option>
+            <option value="chime">Struck Chime</option>
+          </select>
+        </div>
+
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
+            Note Sustain
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={noteSustain}
+              onChange={(e) => onNoteSustainChange(parseFloat(e.target.value))}
+              className="flex-1 accent-amber-600"
+            />
+            <span className="w-10 text-right text-sm font-mono text-zinc-300 tabular-nums">
+              {noteSustain.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
+          <div className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 font-mono">
+            Note Length
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <input
+              type="range"
+              min={0.1}
+              max={3}
+              step={0.05}
+              value={noteLengthFactor}
+              onChange={(e) => onNoteLengthFactorChange(parseFloat(e.target.value))}
+              className="flex-1 accent-amber-600"
+            />
+            <span className="w-10 text-right text-sm font-mono text-zinc-300 tabular-nums">
+              {noteLengthFactor.toFixed(2)}
+            </span>
+          </div>
         </div>
 
         <div className="rounded-md border border-zinc-800 bg-zinc-950/40 px-3 py-2">
@@ -240,7 +342,7 @@ export function TuningControls({
             Acoustic Model
           </div>
           <div className="mt-1 text-sm text-zinc-300">
-            Open pipe fundamental with end correction applied to both open ends.
+            {acousticDescription}
           </div>
         </div>
       </div>
@@ -253,4 +355,11 @@ function formatPipeDiameterValue(pipeDiameterMm: number, unitSystem: UnitSystem)
   if (!Number.isFinite(value)) return "";
 
   return Number(value.toFixed(unitSystem === "imperial" ? 4 : 3)).toString();
+}
+
+function formatLinearValue(lengthMm: number, unitSystem: UnitSystem, decimals: number): string {
+  const value = unitSystem === "imperial" ? mmToInches(lengthMm) : lengthMm;
+  if (!Number.isFinite(value)) return "";
+
+  return Number(value.toFixed(unitSystem === "imperial" ? Math.max(2, decimals) : decimals)).toString();
 }

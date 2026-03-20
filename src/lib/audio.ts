@@ -7,6 +7,8 @@ let outputGain: Tone.Gain | null = null;
 let limiter: Tone.Limiter | null = null;
 let sequenceRef: Tone.Sequence | null = null;
 let currentStepCallback: ((step: number) => void) | null = null;
+let noteSustain = 0.3;
+let noteLengthFactor = 1;
 
 function ensureOutputChain(): Tone.Gain {
   if (!outputGain) {
@@ -29,22 +31,22 @@ export async function ensureAudioReady(): Promise<void> {
   if (!synth) {
     synth = new Tone.Synth({
       oscillator: { type: "sine" },
-      envelope: { attack: 0.02, decay: 0.1, sustain: 0.3, release: 0.5 },
+      envelope: { attack: 0.02, decay: 0.1, sustain: noteSustain, release: 0.5 },
       volume: -10,
     }).connect(ensureOutputChain());
   }
 }
 
-export async function playFrequency(freq: number, duration = "8n"): Promise<void> {
+export async function playFrequency(freq: number, durationSeconds?: number): Promise<void> {
   await ensureAudioReady();
-  synth!.triggerAttackRelease(freq, duration);
+  synth!.triggerAttackRelease(freq, durationSeconds ?? 0.45 * noteLengthFactor);
 }
 
 function getPolySynth(): Tone.PolySynth {
   if (!polySynth) {
     polySynth = new Tone.PolySynth(Tone.Synth, {
       oscillator: { type: "sine" },
-      envelope: { attack: 0.01, decay: 0.1, sustain: 0.2, release: 0.3 },
+      envelope: { attack: 0.01, decay: 0.1, sustain: noteSustain, release: 0.3 },
       volume: -14,
     }).connect(ensureOutputChain());
     polySynth.maxPolyphony = 16;
@@ -52,11 +54,32 @@ function getPolySynth(): Tone.PolySynth {
   return polySynth;
 }
 
+export function setNoteSustain(nextSustain: number): void {
+  noteSustain = Math.max(0, Math.min(nextSustain, 1));
+
+  if (synth) {
+    synth.set({
+      envelope: { attack: 0.02, decay: 0.1, sustain: noteSustain, release: 0.5 },
+    });
+  }
+
+  if (polySynth) {
+    polySynth.set({
+      envelope: { attack: 0.01, decay: 0.1, sustain: noteSustain, release: 0.3 },
+    });
+  }
+}
+
+export function setNoteLengthFactor(nextFactor: number): void {
+  noteLengthFactor = Math.max(0.1, Math.min(nextFactor, 3));
+}
+
 export async function startSequence(
   grid: boolean[][],
   notes: ComputedNote[],
   steps: number,
   bpm: number,
+  stepLengthFactor: number,
   onStep?: (step: number) => void,
 ): Promise<void> {
   await ensureAudioReady();
@@ -68,6 +91,8 @@ export async function startSequence(
 
   const stepIndices = Array.from({ length: steps }, (_, i) => i);
 
+  const noteDurationSeconds = Tone.Time("16n").toSeconds() * Math.max(0.1, stepLengthFactor);
+
   sequenceRef = new Tone.Sequence(
     (time, stepIndex) => {
       const freqs: number[] = [];
@@ -78,7 +103,7 @@ export async function startSequence(
       }
       if (freqs.length > 0) {
         const velocity = Math.min(0.9, 1 / Math.sqrt(freqs.length));
-        poly.triggerAttackRelease(freqs, "16n", time, velocity);
+        poly.triggerAttackRelease(freqs, noteDurationSeconds, time, velocity);
       }
       const onStep = currentStepCallback;
       if (onStep) {
